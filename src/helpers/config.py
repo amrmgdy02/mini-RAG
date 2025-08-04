@@ -4,6 +4,8 @@ class Settings(BaseSettings):
     APPLICATION_NAME: str
     APPLICATION_VERSION: str
     OPENAI_API_KEY: str
+    ALLOWED_FILE_TYPES: list[str]
+    MAX_FILE_SIZE_MB: int
 
     class Config(SettingsConfigDict):
         env_file = ".env"
