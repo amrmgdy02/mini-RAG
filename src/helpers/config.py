@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     ALLOWED_FILE_TYPES: list[str]
     MAX_FILE_SIZE_MB: int
     FILE_DEFAULT_CHUNK_SIZE: int
+    MONGO_URL: str
+    MONGODB_NAME: str
 
     class Config(SettingsConfigDict):
         env_file = ".env"
