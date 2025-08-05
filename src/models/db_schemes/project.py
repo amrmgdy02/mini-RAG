@@ -3,12 +3,12 @@ from typing import Optional
 from bson.objectid import ObjectId
 
 class Project(BaseModel):
-    _id: Optional[ObjectId]
+    id: Optional[ObjectId] = Field(None, alias="_id")
     project_id: str = Field(..., min_length=1, max_length=50)
-    description: str = Field(..., min_length=1, max_length=200)
-    created_at: str
-    updated_at: str
-    
+    description: Optional[str] = Field(None, min_length=1, max_length=200)
+    created_at: Optional[str] = Field(None)
+    updated_at: Optional[str] = Field(None)
+
     @field_validator('project_id')
     def validate_project_id(cls, v):
         if not v.isalnum():
@@ -17,3 +17,4 @@ class Project(BaseModel):
     
     class Config:
         arbitrary_types_allowed = True
+        populate_by_name = True  # Allows using both 'id' and '_id'

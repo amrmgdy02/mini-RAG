@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, UploadFile, status
+from fastapi import FastAPI, APIRouter, Depends, UploadFile, status, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from helpers.config import get_settings, Settings
@@ -8,8 +8,10 @@ from models import ResponseSignal
 import aiofiles
 import logging
 from .schemes.data import ProcessFileRequest
-
-from pydantic import BaseModel
+from models.ProjectModel import ProjectModel
+from models.DataChunkModel import DataChunkModel
+from models.db_schemes.project import Project
+from models.db_schemes.DataChunk import DataChunk
 
 
 logger = logging.getLogger('uvicorn.error')
@@ -20,15 +22,30 @@ data_router = APIRouter(
 )
 
 @data_router.post("/upload/{project_id}")
-async def upload_file(project_id: str, file: UploadFile, app_settings: Settings = Depends(get_settings)):
+async def upload_file(project_id: str, file: UploadFile, request: Request, app_settings: Settings = Depends(get_settings)):
 
     isValidFile, res_signal = DataController().validate_file(file)
+    
     if not isValidFile:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"error": res_signal}
         )
-        
+    
+    db_client = request.app.mongodb_client
+    project_model = ProjectModel(db_client=db_client)
+    
+    try:
+        project = await project_model.find_project_or_create_one(
+            project_id=project_id
+        )
+    except Exception as e:
+        logger.error(f"Database error: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": "Database connection failed"}
+        )
+    
     file_path, unique_filename = DataController().generate_unique_filepath(
         orig_file_name=file.filename,
         project_id=project_id
@@ -52,41 +69,136 @@ async def upload_file(project_id: str, file: UploadFile, app_settings: Settings 
     return JSONResponse(
             content={
                 "signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value,
-                "filename": unique_filename
+                "filename": unique_filename,
+                "project_id": str(project.id) if project.id else "no_id"
             }
         )
-
-@data_router.post("/process/{project_id}")
-async def process_file(project_id: str, request: ProcessFileRequest):
-
-    file_processor = ProcessFileController(project_id=project_id)
-
-    file_content = file_processor.get_file_content(request.filename)
-    chunk_size = request.chunk_size if request.chunk_size else 100
-    overlap = request.overlap if request.overlap else 20
     
-    file_chunks = file_processor.process_file_into_chunks(file_content, chunk_size, overlap)
-    
-    if not file_chunks or len(file_chunks) == 0:
+@data_router.get("/test-db/{project_id}")
+async def test_database(project_id: str, request: Request):
+    """Test endpoint to create a project and check database connection"""
+    try:
+        db_client = request.app.mongodb_client
+        project_model = ProjectModel(db_client=db_client)
+        
+        # Try to create a simple project
+        project = await project_model.find_project_or_create_one(
+            project_id=project_id,
+            description="Test project"
+        )
+        
+        return JSONResponse(content={
+            "success": True,
+            "project_id": str(project.id) if project.id else "None",
+            "project_data": project.model_dump(),
+            "database_name": db_client[project_model.app_settings.MONGODB_NAME].name
+        })
+        
+    except Exception as e:
+        logger.error(f"Database test error: {e}")
         return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "signal": ResponseSignal.FILE_PROCESS_FAILED.value
-            }
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@data_router.get("/projects")
+async def get_projects(request: Request, page_number: int = 1, page_size: int = 10):
+    db_client = request.app.mongodb_client
+    project_model = ProjectModel(db_client=db_client)
+
+    try:
+        projects, total_pages_num = await project_model.get_all_projects(page_number, page_size)
+    except Exception as e:
+        logger.error(f"Database error: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": "Database connection failed"}
         )
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
-            "signal": ResponseSignal.FILE_PROCESS_SUCCESS.value,
-            "file_chunks": [
-                {
-                    "page_content": chunk.page_content,
-                    "metadata": chunk.metadata
-                }
-                for chunk in file_chunks
-            ]
+            "projects": [str(project.id) for project in projects],
+            "total_pages": total_pages_num
         }
     )
+
+@data_router.post("/process/{project_id}")
+async def process_file(fastApiRequest: Request, project_id: str, request: ProcessFileRequest):
+    
+    logger.info(f"Processing file request - project_id: {project_id}")
+    logger.info(f"Request data: {request}")
+    logger.info(f"Filename: {request.filename}")
+    
+    try:
+        db_client = fastApiRequest.app.mongodb_client
+
+        file_processor = ProcessFileController(project_id=project_id)
+
+        #logger.info(f"Getting file content for: {request.filename}")
+        file_content = file_processor.get_file_content(request.filename)
+        #logger.info(f"File content type: {type(file_content)}, length: {len(file_content) if file_content else 'None'}")
+        
+        chunk_size = request.chunk_size if request.chunk_size else 100
+        overlap = request.overlap if request.overlap else 20
+        
+        project_model = ProjectModel(db_client=db_client)
+        project = await project_model.find_project_or_create_one(
+            project_id=project_id
+        )
+        
+        logger.info(f"Project retrieved: {project}")
+        logger.info(f"Project id: {project.id}")
+        logger.info(f"Project type: {type(project.id)}")
+        
+        if not project.id:
+            logger.error("Project ID is None - cannot create chunks")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "signal": ResponseSignal.FILE_PROCESS_FAILED.value,
+                    "error": "Project ID is None"
+                }
+            )
+        
+        file_chunks = file_processor.process_file_into_chunks(file_content, chunk_size, overlap)
+        
+        if not file_chunks or len(file_chunks) == 0:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "signal": ResponseSignal.FILE_PROCESS_FAILED.value
+                }
+            )
+            
+        file_chunks = [
+            DataChunk(
+                chunk_text=chunk.page_content,
+                chunk_metadata=chunk.metadata,
+                chunk_order=i+1,
+                chunk_project_id=project.id,
+            )
+            for i, chunk in enumerate(file_chunks)
+        ]
+        
+        data_chunk_model = DataChunkModel(db_client=db_client)
+        num_inserted = await data_chunk_model.insert_many_chunks(file_chunks)
+            
+        return JSONResponse(
+            content={
+                "signal": ResponseSignal.FILE_PROCESS_SUCCESS.value,
+                "inserted_chunks": num_inserted
+            }
+        )
+    
+    except Exception as e:
+        logger.error(f"Error processing file: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "signal": ResponseSignal.FILE_PROCESS_FAILED.value,
+                "error": str(e)
+            }
+        )
 
     

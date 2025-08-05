@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from typing import Optional
 from bson.objectid import ObjectId
 
@@ -11,3 +11,4 @@ class DataChunk(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+        populate_by_name = True  # Allows using both 'id' and '_id'
