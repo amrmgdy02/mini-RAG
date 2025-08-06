@@ -64,7 +64,6 @@ class ProcessFileController(BaseController):
             rec.metadata for rec in file_content if hasattr(rec, 'metadata') and rec.page_content.strip() != ''
         ]
         
-        
         chunks = text_splitter.create_documents(
             texts=texts_list,
             metadatas=metadata_list

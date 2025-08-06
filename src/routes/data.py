@@ -33,7 +33,7 @@ async def upload_file(project_id: str, file: UploadFile, request: Request, app_s
         )
     
     db_client = request.app.mongodb_client
-    project_model = ProjectModel(db_client=db_client)
+    project_model = await ProjectModel.create_instance(db_client=db_client)
     
     try:
         project = await project_model.find_project_or_create_one(
@@ -73,38 +73,11 @@ async def upload_file(project_id: str, file: UploadFile, request: Request, app_s
                 "project_id": str(project.id) if project.id else "no_id"
             }
         )
-    
-@data_router.get("/test-db/{project_id}")
-async def test_database(project_id: str, request: Request):
-    """Test endpoint to create a project and check database connection"""
-    try:
-        db_client = request.app.mongodb_client
-        project_model = ProjectModel(db_client=db_client)
-        
-        # Try to create a simple project
-        project = await project_model.find_project_or_create_one(
-            project_id=project_id,
-            description="Test project"
-        )
-        
-        return JSONResponse(content={
-            "success": True,
-            "project_id": str(project.id) if project.id else "None",
-            "project_data": project.model_dump(),
-            "database_name": db_client[project_model.app_settings.MONGODB_NAME].name
-        })
-        
-    except Exception as e:
-        logger.error(f"Database test error: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
 
 @data_router.get("/projects")
 async def get_projects(request: Request, page_number: int = 1, page_size: int = 10):
     db_client = request.app.mongodb_client
-    project_model = ProjectModel(db_client=db_client)
+    project_model = await ProjectModel.create_instance(db_client=db_client)
 
     try:
         projects, total_pages_num = await project_model.get_all_projects(page_number, page_size)
@@ -123,33 +96,53 @@ async def get_projects(request: Request, page_number: int = 1, page_size: int = 
         }
     )
 
+@data_router.get("/debug/indexes/{project_id}")
+async def get_collection_indexes(request: Request, project_id: str = "projects"):
+    """Debug endpoint to check what indexes exist on collections"""
+    try:
+        db_client = request.app.mongodb_client
+        project_model = await ProjectModel.create_instance(db_client=db_client)
+        
+        # Get indexes for projects collection
+        project_indexes = await project_model.get_collection_indexes()
+        
+        # Also check DataChunk indexes if requested
+        data_chunk_model = await DataChunkModel.create_instance(db_client=db_client)
+        chunk_indexes = await data_chunk_model.get_collection_indexes() if hasattr(data_chunk_model, 'get_collection_indexes') else []
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "project_indexes": project_indexes,
+                "chunk_indexes": chunk_indexes,
+                "collections": await db_client[project_model.app_settings.MONGODB_NAME].list_collection_names()
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error checking indexes: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": str(e)}
+        )
+
 @data_router.post("/process/{project_id}")
 async def process_file(fastApiRequest: Request, project_id: str, request: ProcessFileRequest):
-    
-    logger.info(f"Processing file request - project_id: {project_id}")
-    logger.info(f"Request data: {request}")
-    logger.info(f"Filename: {request.filename}")
     
     try:
         db_client = fastApiRequest.app.mongodb_client
 
         file_processor = ProcessFileController(project_id=project_id)
 
-        #logger.info(f"Getting file content for: {request.filename}")
         file_content = file_processor.get_file_content(request.filename)
-        #logger.info(f"File content type: {type(file_content)}, length: {len(file_content) if file_content else 'None'}")
         
         chunk_size = request.chunk_size if request.chunk_size else 100
         overlap = request.overlap if request.overlap else 20
         
-        project_model = ProjectModel(db_client=db_client)
+        project_model = await ProjectModel.create_instance(db_client=db_client)
         project = await project_model.find_project_or_create_one(
             project_id=project_id
         )
-        
-        logger.info(f"Project retrieved: {project}")
-        logger.info(f"Project id: {project.id}")
-        logger.info(f"Project type: {type(project.id)}")
         
         if not project.id:
             logger.error("Project ID is None - cannot create chunks")
@@ -181,7 +174,7 @@ async def process_file(fastApiRequest: Request, project_id: str, request: Proces
             for i, chunk in enumerate(file_chunks)
         ]
         
-        data_chunk_model = DataChunkModel(db_client=db_client)
+        data_chunk_model = await DataChunkModel.create_instance(db_client=db_client)
         num_inserted = await data_chunk_model.insert_many_chunks(file_chunks)
             
         return JSONResponse(

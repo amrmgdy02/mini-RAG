@@ -12,3 +12,15 @@ class DataChunk(BaseModel):
     class Config:
         arbitrary_types_allowed = True
         populate_by_name = True  # Allows using both 'id' and '_id'
+        
+    @classmethod
+    def get_indexes(cls):
+        return [
+            {
+                "key": [
+                    ("chunk_project_id", 1)
+                ],
+                "name": "idx_chunk_project_id",
+                "unique": False,
+            }
+        ]
