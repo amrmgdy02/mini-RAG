@@ -19,6 +19,7 @@ async def get_setup():
     
     vectordb_factory = VectorDBFactory(settings)
     vector_db_client = vectordb_factory.create("QDRANT")
+    vector_db_client.init_connection()
     
     return (
         mongodb_client,

@@ -117,18 +117,18 @@ async def _embed_chunks(task_instance, chunks:List):
             embedding_llm,
             vector_db_client
         ) = await get_setup()
-        
-        vecto_store_controller = VectorStoreController(embedding_llm, vector_db_client)
-        
+
+        vector_store_controller = VectorStoreController(embedding_llm, vector_db_client)
+
         for chunk in chunks:
-            embeddings = vecto_store_controller.embed_chunk(
+            embeddings = vector_store_controller.embed_chunk(
                     text=chunk['chunk_text'],
                     metadata=chunk['chunk_metadata']
                 )
 
             if not embeddings or len(embeddings) == 0:
                 continue
-                
+            
         return {
             "signal": ResponseSignal.FILE_PROCESS_SUCCESS.value,
         }

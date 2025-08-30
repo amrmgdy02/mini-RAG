@@ -1,6 +1,7 @@
 from .VectorDBProvider import VectorDBProviderInterface
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, Distance, VectorParams
+from helpers.config import get_settings, Settings
 from typing import List, Dict
 import uuid
 import logging
@@ -9,10 +10,12 @@ class QdrantProvider(VectorDBProviderInterface):
     def __init__(self, db_path):
         self.client = None
         self.db_path = db_path
+        self.app_settings = get_settings()
         self.logger = logging.getLogger(__name__)
         
     def init_connection(self):
-        self.client = QdrantClient(path=self.db_path)
+        # remember the problem of local mode (celery and fastAPI can't access db concurrently)
+        self.client = QdrantClient(host=self.app_settings.QDRANT_HOST, port=self.app_settings.QDRANT_PORT)
         
     def disconnect(self):
         self.client = None

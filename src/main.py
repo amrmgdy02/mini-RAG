@@ -24,7 +24,6 @@ async def startup_db_client():
     app.vector_db_client = vectordb_factory.create("QDRANT")
     app.vector_db_client.init_connection()
 
-
 @app.on_event("shutdown")
 async def shutdown_db_client():
     app.mongodb_client.close()

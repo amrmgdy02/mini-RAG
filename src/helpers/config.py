@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     CELERY_TASK_ACKS_LATE: bool
     CELERY_WORKER_CONCURRENCY: int
     CELERY_FLOWER_PASSWORD: str
+    QDRANT_HOST: str
+    QDRANT_PORT: int
 
     class Config(SettingsConfigDict):
         env_file = ".env"
