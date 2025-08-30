@@ -9,5 +9,11 @@ langchain-community==0.3.27
 PyMuPDF==1.26.3
 motor==3.7.1
 pydantic-mongo==3.1.0
+qdrant-client==1.15.1
 openai==1.99.1
 ollama==0.5.2
+celery==5.5.3
+redis==6.4.0
+kombu==5.5.4
+billiard==4.2.1
+vine==5.1.0

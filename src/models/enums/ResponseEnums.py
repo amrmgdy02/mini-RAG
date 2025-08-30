@@ -9,3 +9,6 @@ class ResponseSignal(Enum):
     FILE_UPLOAD_FAILED = "file_upload_failed"
     FILE_PROCESS_SUCCESS = "file_process_success"
     FILE_PROCESS_FAILED = "file_process_failed"
+    CHUNK_EMBEDDING_SUCCESS = "chunk_embedding_success"
+    CHUNK_EMBEDDING_FAILED = "chunk_embedding_failed"
+    FILE_PROCESSING_SUCCESS = "file_processing_success"

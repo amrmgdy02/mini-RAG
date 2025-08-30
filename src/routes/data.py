@@ -12,6 +12,7 @@ from models.ProjectModel import ProjectModel
 from models.DataChunkModel import DataChunkModel
 from models.db_schemes.project import Project
 from models.db_schemes.DataChunk import DataChunk
+from tasks.file_processing import chunk_file
 
 
 logger = logging.getLogger('uvicorn.error')
@@ -66,6 +67,13 @@ async def upload_file(project_id: str, file: UploadFile, request: Request, app_s
             }
         )
 
+    task = chunk_file.delay(
+        project_id=project_id,
+        filename=unique_filename,
+        chunk_size=app_settings.FILE_DEFAULT_CHUNK_SIZE,
+        overlap=app_settings.FILE_DEFAULT_OVERLAP_SIZE,
+    )
+    
     return JSONResponse(
             content={
                 "signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value,
@@ -74,57 +82,6 @@ async def upload_file(project_id: str, file: UploadFile, request: Request, app_s
             }
         )
 
-@data_router.get("/projects")
-async def get_projects(request: Request, page_number: int = 1, page_size: int = 10):
-    db_client = request.app.mongodb_client
-    project_model = await ProjectModel.create_instance(db_client=db_client)
-
-    try:
-        projects, total_pages_num = await project_model.get_all_projects(page_number, page_size)
-    except Exception as e:
-        logger.error(f"Database error: {e}")
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": "Database connection failed"}
-        )
-
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={
-            "projects": [str(project.id) for project in projects],
-            "total_pages": total_pages_num
-        }
-    )
-
-@data_router.get("/debug/indexes/{project_id}")
-async def get_collection_indexes(request: Request, project_id: str = "projects"):
-    """Debug endpoint to check what indexes exist on collections"""
-    try:
-        db_client = request.app.mongodb_client
-        project_model = await ProjectModel.create_instance(db_client=db_client)
-        
-        # Get indexes for projects collection
-        project_indexes = await project_model.get_collection_indexes()
-        
-        # Also check DataChunk indexes if requested
-        data_chunk_model = await DataChunkModel.create_instance(db_client=db_client)
-        chunk_indexes = await data_chunk_model.get_collection_indexes() if hasattr(data_chunk_model, 'get_collection_indexes') else []
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "project_indexes": project_indexes,
-                "chunk_indexes": chunk_indexes,
-                "collections": await db_client[project_model.app_settings.MONGODB_NAME].list_collection_names()
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Error checking indexes: {e}")
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"error": str(e)}
-        )
 
 @data_router.post("/process/{project_id}")
 async def process_file(fastApiRequest: Request, project_id: str, request: ProcessFileRequest):
@@ -194,4 +151,26 @@ async def process_file(fastApiRequest: Request, project_id: str, request: Proces
             }
         )
 
+
+@data_router.get("/projects")
+async def get_projects(request: Request, page_number: int = 1, page_size: int = 10):
+    db_client = request.app.mongodb_client
+    project_model = await ProjectModel.create_instance(db_client=db_client)
+
+    try:
+        projects, total_pages_num = await project_model.get_all_projects(page_number, page_size)
+    except Exception as e:
+        logger.error(f"Database error: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": "Database connection failed"}
+        )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "projects": [str(project.id) for project in projects],
+            "total_pages": total_pages_num
+        }
+    )
     

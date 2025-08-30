@@ -1,8 +1,8 @@
-from LLMProviderInterface import LLMProviderInterface
+from .LLMProviderInterface import LLMInterface
 from openai import OpenAI
 import logging
 
-class OpenAIProvider(LLMProviderInterface):
+class OpenAIProvider(LLMInterface):
     
     def __init__(self, api_key: str, api_url: str=None,
                        default_input_max_characters: int=1000,
@@ -64,7 +64,7 @@ class OpenAIProvider(LLMProviderInterface):
         
         return response.choices[0].message['content']
     
-    def generate_embedding(self, text: str):
+    def generate_embedding(self, text: str, document_type: str = None):
         """
         Generate an embedding for the provided text.
         """

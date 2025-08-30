@@ -46,7 +46,7 @@ class ProcessFileController(BaseController):
         """
         return self.get_file_loader(file_name).load() if self.get_file_loader(file_name) else None
 
-    def process_file_into_chunks(self, file_content: list, chunk_size: int = 100, chunk_overlap: int = 20):
+    def process_file_into_chunks(self, project_id: str, file_content: list, chunk_size: int = 100, chunk_overlap: int = 20):
         """
         Process the file content into chunks.
         """
@@ -61,7 +61,7 @@ class ProcessFileController(BaseController):
         ]
         
         metadata_list = [
-            rec.metadata for rec in file_content if hasattr(rec, 'metadata') and rec.page_content.strip() != ''
+            {"src": rec.metadata, "project_id": project_id, "chunk_order": i+1} for i, rec in enumerate(file_content) if hasattr(rec, 'metadata') and rec.page_content.strip() != ''
         ]
         
         chunks = text_splitter.create_documents(
