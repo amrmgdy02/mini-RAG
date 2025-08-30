@@ -90,6 +90,7 @@ class QdrantProvider(VectorDBProviderInterface):
             raise ValueError(f"Collection '{collection_name}' does not exist")
 
         try:
+
             results = self.client.search(
                 collection_name=collection_name,
                 query_vector=query_vector,
@@ -97,6 +98,7 @@ class QdrantProvider(VectorDBProviderInterface):
                 with_payload=True,
                 with_vectors=False
             )
+            
             return [
                 {
                     "id": hit.id,
@@ -105,6 +107,7 @@ class QdrantProvider(VectorDBProviderInterface):
                 }
                 for hit in results
             ]
+    
         except Exception as e:
             self.logger.error(f"Search error: {e}")
             return []

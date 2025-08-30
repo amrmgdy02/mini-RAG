@@ -34,7 +34,7 @@ class ProcessFileController(BaseController):
         file_path = os.path.join(self.project_path, file_name)
         
         if file_extension in ['.pdf']:
-            return PyMuPDFLoader(file_path, encoding='utf-8')
+            return PyMuPDFLoader(file_path)
         elif file_extension in ['.txt']:
             return TextLoader(file_path, encoding='utf-8')
         else:
@@ -55,7 +55,6 @@ class ProcessFileController(BaseController):
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap
         )
-        
         texts_list = [
             rec.page_content for rec in file_content if hasattr(rec, 'page_content') and rec.page_content.strip() != ''
         ]

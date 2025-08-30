@@ -11,6 +11,35 @@ vector_store_router = APIRouter(
     tags=["api/v1", "vector database"]
 )
 
+@vector_store_router.post("/query-search/{project_id}")
+async def search_query(fastApiRequest: Request, project_id: str, request: dict):
+    try:
+        vecto_store_controller = VectorStoreController(fastApiRequest.app.embedding_llm, fastApiRequest.app.vector_db_client)
+        
+        search_results = vecto_store_controller.search_similar_vectors(
+                project_id=project_id, 
+                query_text=request['query_text'], 
+                top_k=request.get('top_k', 5)
+            )
+        
+        return JSONResponse(
+            content={
+                "signal": "query search succeeded",
+                "results": search_results
+            }
+        )
+            
+    except Exception as e:
+        logger.error(f"Error searching query: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "signal": "query search failed",
+                "error": str(e)
+            }
+        )
+
+# Not used here - automated by celery after file upload
 @vector_store_router.post("/embed-vector/{project_id}")
 async def embed_chunk(fastApiRequest: Request, project_id: str, request: dict):
     try:

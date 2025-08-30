@@ -49,9 +49,9 @@ async def _chunk_file(task_instance, project_id,
         db_client = mongodb_client
 
         file_processor = ProcessFileController(project_id=project_id)
-
+        print("Before get file content")
         file_content = file_processor.get_file_content(filename)
-        
+        print("After get file content")
         chunk_size = chunk_size if chunk_size else 100
         overlap = overlap if overlap else 20
         
@@ -62,23 +62,17 @@ async def _chunk_file(task_instance, project_id,
         
         if not project.id:
             logger.error("Project ID is None - cannot create chunks")
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={
-                    "signal": ResponseSignal.FILE_PROCESS_FAILED.value,
-                    "error": "Project ID is None"
-                }
-            )
-        
+            return {
+                "signal": ResponseSignal.FILE_PROCESS_FAILED.value,
+                "error": "Project ID is None"
+            }
+        print("file content: ", file_content)
         file_chunks = file_processor.process_file_into_chunks(project_id, file_content, chunk_size, overlap)
-        
+        print("file chunks: ", file_chunks)
         if not file_chunks or len(file_chunks) == 0:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "signal": ResponseSignal.FILE_PROCESS_FAILED.value
-                }
-            )
+            return {
+                "signal": ResponseSignal.FILE_PROCESS_FAILED.value
+            }
             
         file_chunks = [
             DataChunk(
@@ -131,11 +125,9 @@ async def _embed_chunks(task_instance, chunks:List):
                     text=chunk['chunk_text'],
                     metadata=chunk['chunk_metadata']
                 )
-            
-            if embeddings and len(embeddings) > 0:
-                return {
-                    "signal": ResponseSignal.CHUNK_EMBEDDING_SUCCESS.value,
-                }
+
+            if not embeddings or len(embeddings) == 0:
+                continue
                 
         return {
             "signal": ResponseSignal.FILE_PROCESS_SUCCESS.value,

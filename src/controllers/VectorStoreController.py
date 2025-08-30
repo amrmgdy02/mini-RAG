@@ -1,3 +1,4 @@
+from itertools import count
 from .BaseController import BaseController
 from qdrant_client.models import Distance, VectorParams
 from helpers.config import get_settings, Settings
@@ -26,8 +27,6 @@ class VectorStoreController(BaseController):
     
     def embed_chunk(self, text: str, metadata: dict):
         
-        self.vector_db_client.init_connection()
-        
         project_id = metadata['project_id']
         if (len(text) == 0):
             return None
@@ -45,21 +44,19 @@ class VectorStoreController(BaseController):
                     distance=Distance.DOT
                 )
             )
-            
+        
+        metadata['original_text'] = text  # Store the original chunk text in metadata
+        
         self.vector_db_client.insert_vector(
             collection_name=project_id,
             vector=embeddings,
             metadata=metadata
         )
         
-        self.vector_db_client.disconnect()
-        
         return embeddings
     
     def search_similar_vectors(self, project_id: str, query_text: str, top_k: int=5):
-        
-        self.vector_db_client.init_connection()
-        
+
         if not self.vector_db_client.collection_exist(project_id):
             raise ValueError(f"Collection for project_id {project_id} does not exist.")
         
@@ -67,7 +64,7 @@ class VectorStoreController(BaseController):
             text=query_text,
             document_type="query"
         )
-
+        
         if not query_embedding:
             raise ValueError(f"Failed to generate embedding for query_text: {query_text}")
 
@@ -76,7 +73,5 @@ class VectorStoreController(BaseController):
             query_vector=query_embedding,
             top_k=top_k
         )
-        
-        self.vector_db_client.disconnect()
         
         return results
