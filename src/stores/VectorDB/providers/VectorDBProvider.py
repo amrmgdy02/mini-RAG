@@ -48,4 +48,7 @@ class VectorDBProviderInterface(ABC):
     def search(self, collection_name: str, query_vector: List, top_k: int = 5):
         pass
     
+    @abstractmethod
+    def clear_db():
+        pass
     

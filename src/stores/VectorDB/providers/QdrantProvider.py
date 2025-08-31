@@ -7,9 +7,8 @@ import uuid
 import logging
 
 class QdrantProvider(VectorDBProviderInterface):
-    def __init__(self, db_path):
+    def __init__(self):
         self.client = None
-        self.db_path = db_path
         self.app_settings = get_settings()
         self.logger = logging.getLogger(__name__)
         
@@ -129,3 +128,10 @@ class QdrantProvider(VectorDBProviderInterface):
         except Exception as e:
             self.logger.error(f"Error: {e}")
             return None
+        
+    def clear_db(self):
+        if not self.client:
+            raise ConnectionError("Not connected to database")
+        
+        for collection in self.client.get_collections().collections:
+            self.client.delete_collection(collection.name)

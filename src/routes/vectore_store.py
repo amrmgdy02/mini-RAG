@@ -50,11 +50,20 @@ async def search_query(fastApiRequest: Request, project_id: str, request: dict):
                 query_text=request['query_text'], 
                 top_k=request.get('top_k', 5)
             )
-        
+
         return JSONResponse(
             content={
                 "signal": "query search succeeded",
                 "results": search_results
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error searching query: {e}")
+        return JSONResponse(
+            content={
+                "signal": "query search failed",
+                "error": str(e)
             }
         )
             

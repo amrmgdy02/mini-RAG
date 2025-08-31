@@ -6,10 +6,9 @@ class VectorDBFactory():
         self.config = config
 
     def create(self, provider: str):
-        vector_db_path = BaseController().vector_store_dir
 
         if provider == "QDRANT":
-            return QdrantProvider(db_path=vector_db_path)
+            return QdrantProvider()
         
         else:
             return None

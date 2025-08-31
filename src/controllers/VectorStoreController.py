@@ -12,24 +12,14 @@ class VectorStoreController(BaseController):
 
     def __init__(self, embedding_model: LLMInterface, generation_llm: LLMInterface, vector_db_client: VectorDBProviderInterface):
         super().__init__()
+        
         self.embedding_client = embedding_model
         self.vector_db_client = vector_db_client
         self.generation_llm = generation_llm
         self.settings = get_settings()
-
-    def get_project_vectors_path(self, project_id: str):
-        project_dir = os.path.join(
-            self.vector_store_dir,
-            project_id
-        )
-
-        if not os.path.exists(project_dir):
-            os.makedirs(project_dir)
-
-        return project_dir
-    
-    def embed_chunk(self, text: str, metadata: dict):
         
+        
+    def embed_chunk(self, text: str, metadata: dict):
         project_id = metadata['project_id']
         if (len(text) == 0):
             return None
@@ -58,6 +48,7 @@ class VectorStoreController(BaseController):
         
         return embeddings
     
+    
     def search_similar_vectors(self, project_id: str, query_text: str, top_k: int=5):
 
         if not self.vector_db_client.collection_exist(project_id):
@@ -77,28 +68,36 @@ class VectorStoreController(BaseController):
             top_k=top_k
         )
         
-        return results
+        return [
+            {
+                "score": res['score'],
+                "original_text": res['payload'].get('original_text', ''),
+                "src_file_path": res['payload']['src']['file_path']
+            }
+            for res in results
+        ]
+
 
     def answer_with_rag(self, query: str, project_id: str, chat_history: List[dict] = [], top_k: int = 5):
-        print("Entered answer_with_rag")
+        
         search_results = self.search_similar_vectors(
             project_id=project_id,
             query_text=query,
             top_k=top_k
         )
-        print("Passed vector search")
+        
         if not search_results or len(search_results) == 0:
             raise ValueError("No relevant documents found for the query.")
         
-        context = "\n".join([f"### Content: {hit['payload'].get('original_text', '')}" for hit in search_results])
-        print("Context: ", context)
+        context = "\n".join([f"### Content: {hit.get('original_text', '')}" for hit in search_results])
+        
         prompt = f"Use the following context to answer the question:\nContext: {context}\nQuestion: {query}\nAnswer:"
-        print("Prompt: ", prompt)
+        
         answer = self.generation_llm.generate_text(
             prompt=prompt,
             chat_history=chat_history,
             max_output_tokens=self.settings.DEFAULT_GENERATION_MAX_OUTPUT_TOKENS,
             temperature=self.settings.DEFAULT_GENERATION_TEMPERATURE
         )
-        return answer
-        return answer, search_results, chat_history + [{"role": "user", "content": query}, {"role": "assistant", "content": answer}]
+
+        return {"answer": answer, "sources": search_results}

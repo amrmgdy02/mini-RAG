@@ -118,7 +118,7 @@ async def _embed_chunks(task_instance, chunks:List):
             vector_db_client
         ) = await get_setup()
 
-        vector_store_controller = VectorStoreController(embedding_llm, vector_db_client)
+        vector_store_controller = VectorStoreController(embedding_llm, generation_llm, vector_db_client)
 
         for chunk in chunks:
             embeddings = vector_store_controller.embed_chunk(

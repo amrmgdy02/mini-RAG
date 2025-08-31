@@ -43,7 +43,7 @@ class OllamaProvider(LLMInterface):
 
     def generate_text(self, prompt: str, chat_history: list=[], max_output_tokens: int=None,
                       temperature: float = None):
-        print("Entered Generate Text")
+        
         if not self.generation_model_name:
             raise ValueError("Generation model is not set.")
 
@@ -52,7 +52,7 @@ class OllamaProvider(LLMInterface):
         chat_history = [{"role": "system", "content": self.system_message}] + chat_history if chat_history else [{"role": "system", "content": self.system_message}]
 
         messages = chat_history + [{"role": "user", "content": valid_prompt}]
-        print("Messages: ", messages)
+        
         response = requests.post(
             f"{self.base_url}/api/chat",
             json={
@@ -65,7 +65,7 @@ class OllamaProvider(LLMInterface):
                 }
             }
         )
-        print("Response: ", response)
+        
         if response.status_code != 200:
             self.logger.error(f"Error from Ollama: {response.text}")
             return None
