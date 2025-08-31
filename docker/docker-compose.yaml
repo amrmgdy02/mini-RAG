@@ -20,7 +20,7 @@ services:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      - qdrant_data:/qdrant/storage
+      - ./qdrant_data:/qdrant/storage
     networks:
       - backend
     restart: always
@@ -69,6 +69,5 @@ networks:
   backend:
 
 volumes:
-  qdrant_data:
   rabbitmq_data:
   redis_data:
